@@ -31,7 +31,7 @@
         }
 
         .page {
-            width: min(1100px, 94vw);
+            width: min(1120px, 94vw);
             margin: 32px auto 42px;
         }
 
@@ -115,12 +115,28 @@
             gap: 12px;
         }
 
-        .chapter {
+        .part {
             background: var(--panel);
             border: 1px solid var(--border);
             border-radius: 12px;
             padding: 14px;
             box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+        }
+
+        .part-header {
+            margin: 0 0 10px;
+            font-size: 19px;
+        }
+
+        .chapter {
+            border: 1px dashed #dbe3ef;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+
+        .chapter:last-child {
+            margin-bottom: 0;
         }
 
         .chapter-header {
@@ -133,7 +149,7 @@
 
         .chapter-title {
             margin: 0;
-            font-size: 18px;
+            font-size: 16px;
         }
 
         .chapter-count {
@@ -142,6 +158,7 @@
         }
 
         .grid {
+            margin-top: 8px;
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 12px;
@@ -226,6 +243,12 @@
             background: #e0e7ff;
         }
 
+        .chapter-empty {
+            margin: 0;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
         .empty {
             margin-top: 14px;
             padding: 18px;
@@ -273,15 +296,15 @@
     <main class="page">
         <section class="header">
             <h1 class="title">教学资源导航</h1>
-            <p class="subtitle">采用“学科 → 章节 → 页面”模式组织资源。当前已接入大学物理，并预留教学论扩展位。</p>
+            <p class="subtitle">采用“学科 -> 篇 -> 章节 -> 页面”模式组织资源。大学物理已按 5 篇 10 章归纳，支持后续扩展教学论等学科。</p>
             <div class="toolbar">
-                <input id="searchInput" class="search" type="search" placeholder="搜索名称、章节、关键词..." />
+                <input id="searchInput" class="search" type="search" placeholder="搜索名称、篇章、关键词..." />
                 <span id="countMeta" class="meta">共 0 个资源</span>
             </div>
             <div id="subjectTabs" class="subjects"></div>
         </section>
 
-        <section id="chapterLayout" class="layout"></section>
+        <section id="partLayout" class="layout"></section>
         <section id="emptyState" class="empty">当前筛选条件下没有匹配资源，请调整搜索词或切换学科。</section>
 
         <section class="recent">
@@ -295,39 +318,72 @@
             {
                 id: "university-physics",
                 subject: "大学物理",
-                description: "基础物理课程演示资源",
-                chapters: [
+                description: "按篇章组织的大学物理课程演示资源",
+                parts: [
                     {
-                        id: "rotation",
-                        title: "第3章 刚体转动与角动量",
-                        resources: [
+                        id: "part-1",
+                        title: "第1篇 力学",
+                        chapters: [
+                            { id: "chapter-1", title: "第1章 运动的描述", resources: [] },
                             {
-                                id: "torque",
-                                title: "力矩演示",
-                                file: "resources/大学物理/03-刚体转动/力矩.html",
-                                description: "展示力矩与转动效果，适合讲解力和支点关系。",
-                                keywords: ["力矩", "转动", "杠杆"]
+                                id: "chapter-2",
+                                title: "第2章 运动定律与力学守恒定律",
+                                resources: [
+                                    {
+                                        id: "torque",
+                                        title: "力矩演示",
+                                        file: "resources/大学物理/第1篇-力学/第2章-运动定律与力学守恒定律/力矩.html",
+                                        description: "展示力矩与转动效果，适合讲解力和支点关系。",
+                                        keywords: ["力矩", "转动", "杠杆"]
+                                    },
+                                    {
+                                        id: "angular-momentum",
+                                        title: "角动量演示（矢量）",
+                                        file: "resources/大学物理/第1篇-力学/第2章-运动定律与力学守恒定律/角动量演示(矢量）.html",
+                                        description: "可视化角动量矢量变化，帮助理解方向和大小关系。",
+                                        keywords: ["角动量", "矢量", "旋转"]
+                                    },
+                                    {
+                                        id: "kepler-orbit",
+                                        title: "开普勒轨道模拟（优化版）",
+                                        file: "resources/大学物理/第1篇-力学/第2章-运动定律与力学守恒定律/开普勒轨道模拟（优化版）.html",
+                                        description: "基于开普勒定律与面积速度，展示轨道运动过程。",
+                                        keywords: ["开普勒", "轨道", "天体运动", "行星"]
+                                    }
+                                ]
                             },
-                            {
-                                id: "angular-momentum",
-                                title: "角动量演示（矢量）",
-                                file: "resources/大学物理/03-刚体转动/角动量演示(矢量）.html",
-                                description: "可视化角动量矢量变化，帮助理解方向和大小关系。",
-                                keywords: ["角动量", "矢量", "旋转"]
-                            }
+                            { id: "chapter-3", title: "第3章 机械振动与机械波", resources: [] }
                         ]
                     },
                     {
-                        id: "kepler",
-                        title: "第4章 万有引力与开普勒定律",
-                        resources: [
-                            {
-                                id: "kepler-orbit",
-                                title: "开普勒轨道模拟（优化版）",
-                                file: "resources/大学物理/04-万有引力与开普勒定律/开普勒轨道模拟（优化版）.html",
-                                description: "基于开普勒定律与面积速度，展示轨道运动过程。",
-                                keywords: ["开普勒", "轨道", "天体运动", "行星"]
-                            }
+                        id: "part-2",
+                        title: "第2篇 热学",
+                        chapters: [
+                            { id: "chapter-4", title: "第4章 气体动理论", resources: [] },
+                            { id: "chapter-5", title: "第5章 热力学基础", resources: [] }
+                        ]
+                    },
+                    {
+                        id: "part-3",
+                        title: "第3篇 电磁学",
+                        chapters: [
+                            { id: "chapter-6", title: "第6章 静电场", resources: [] },
+                            { id: "chapter-7", title: "第7章 稳恒磁场", resources: [] },
+                            { id: "chapter-8", title: "第8章 电磁感应", resources: [] }
+                        ]
+                    },
+                    {
+                        id: "part-4",
+                        title: "第4篇 光学",
+                        chapters: [
+                            { id: "chapter-9", title: "第9章 光学", resources: [] }
+                        ]
+                    },
+                    {
+                        id: "part-5",
+                        title: "第5篇 近代物理学",
+                        chapters: [
+                            { id: "chapter-10", title: "第10章 近代物理学基础", resources: [] }
                         ]
                     }
                 ]
@@ -336,32 +392,34 @@
                 id: "pedagogy",
                 subject: "教学论",
                 description: "预留：后续接入教学论课程资源",
-                chapters: []
+                parts: []
             }
         ];
 
-        const storageKey = "teaching_resource_recent_visits_v2";
+        const storageKey = "teaching_resource_recent_visits_v3";
         const searchInput = document.getElementById("searchInput");
         const countMeta = document.getElementById("countMeta");
         const subjectTabs = document.getElementById("subjectTabs");
-        const chapterLayout = document.getElementById("chapterLayout");
+        const partLayout = document.getElementById("partLayout");
         const emptyState = document.getElementById("emptyState");
         const recentList = document.getElementById("recentList");
-        let activeSubjectId = catalog[0]?.id || "";
-
-        function flattenSubject(subject) {
-            return subject.chapters.flatMap((chapter) =>
-                chapter.resources.map((resource) => ({
-                    ...resource,
-                    subject: subject.subject,
-                    chapter: chapter.title,
-                    chapterId: chapter.id
-                }))
-            );
-        }
+        let activeSubjectId = catalog[0] ? catalog[0].id : "";
 
         function getSubjectById(subjectId) {
             return catalog.find((subject) => subject.id === subjectId);
+        }
+
+        function flattenSubject(subject) {
+            return subject.parts.flatMap((part) =>
+                part.chapters.flatMap((chapter) =>
+                    chapter.resources.map((resource) => ({
+                        ...resource,
+                        subject: subject.subject,
+                        part: part.title,
+                        chapter: chapter.title
+                    }))
+                )
+            );
         }
 
         function getResourceCount(subject) {
@@ -397,7 +455,7 @@
             const card = document.createElement("article");
             card.className = "card";
             card.innerHTML = `
-                <p class="breadcrumb">${item.subject} / ${item.chapter}</p>
+                <p class="breadcrumb">${item.subject} / ${item.part} / ${item.chapter}</p>
                 <h3 class="name">${item.title}</h3>
                 <p class="desc">${item.description}</p>
                 <div class="file">${item.file}</div>
@@ -406,6 +464,7 @@
                     <button class="btn btn-secondary" type="button">新标签页</button>
                 </div>
             `;
+
             const [openBtn, openNewTabBtn] = card.querySelectorAll("button");
             openBtn.addEventListener("click", () => openResource(item, false));
             openNewTabBtn.addEventListener("click", () => openResource(item, true));
@@ -428,63 +487,88 @@
             });
         }
 
-        function renderChapters(query) {
+        function renderParts(query) {
             const subject = getSubjectById(activeSubjectId);
             if (!subject) {
-                chapterLayout.innerHTML = "";
+                partLayout.innerHTML = "";
                 countMeta.textContent = "共 0 个资源";
                 emptyState.style.display = "block";
                 return;
             }
 
             const q = query.trim().toLowerCase();
+            partLayout.innerHTML = "";
             let visibleCount = 0;
-            chapterLayout.innerHTML = "";
+            let visiblePartCount = 0;
 
-            if (!subject.chapters.length) {
+            if (!subject.parts.length) {
                 countMeta.textContent = `学科：${subject.subject}（0 个资源）`;
                 emptyState.style.display = "block";
-                emptyState.textContent = `${subject.subject} 暂无页面，后续可按“章节 -> 页面”方式继续扩展。`;
+                emptyState.textContent = `${subject.subject} 暂无页面，后续可按“篇 -> 章节 -> 页面”方式继续扩展。`;
                 return;
             }
 
-            subject.chapters.forEach((chapter) => {
-                const resources = chapter.resources.filter((resource) => {
-                    const text = `${subject.subject} ${chapter.title} ${resource.title} ${resource.file} ${resource.keywords.join(" ")}`.toLowerCase();
-                    return text.includes(q);
+            subject.parts.forEach((part) => {
+                const partSection = document.createElement("section");
+                partSection.className = "part";
+                partSection.innerHTML = `<h2 class="part-header">${part.title}</h2>`;
+
+                let partVisible = false;
+                part.chapters.forEach((chapter) => {
+                    const chapterResources = chapter.resources.filter((resource) => {
+                        const text = `${subject.subject} ${part.title} ${chapter.title} ${resource.title} ${resource.file} ${resource.keywords.join(" ")}`.toLowerCase();
+                        return text.includes(q);
+                    });
+                    const chapterTextMatched = `${part.title} ${chapter.title}`.toLowerCase().includes(q);
+                    const shouldRenderChapter = !q || chapterResources.length > 0 || chapterTextMatched;
+
+                    if (!shouldRenderChapter) {
+                        return;
+                    }
+
+                    partVisible = true;
+                    visibleCount += chapterResources.length;
+
+                    const chapterSection = document.createElement("section");
+                    chapterSection.className = "chapter";
+                    chapterSection.innerHTML = `
+                        <div class="chapter-header">
+                            <h3 class="chapter-title">${chapter.title}</h3>
+                            <span class="chapter-count">${chapterResources.length} 个页面</span>
+                        </div>
+                    `;
+
+                    if (chapterResources.length) {
+                        const grid = document.createElement("div");
+                        grid.className = "grid";
+                        chapterResources.forEach((resource) => {
+                            const merged = {
+                                ...resource,
+                                subject: subject.subject,
+                                part: part.title,
+                                chapter: chapter.title
+                            };
+                            grid.appendChild(createCard(merged));
+                        });
+                        chapterSection.appendChild(grid);
+                    } else {
+                        const empty = document.createElement("p");
+                        empty.className = "chapter-empty";
+                        empty.textContent = "暂无页面";
+                        chapterSection.appendChild(empty);
+                    }
+                    partSection.appendChild(chapterSection);
                 });
 
-                if (!resources.length) {
-                    return;
+                if (partVisible) {
+                    visiblePartCount += 1;
+                    partLayout.appendChild(partSection);
                 }
-
-                visibleCount += resources.length;
-                const chapterSection = document.createElement("section");
-                chapterSection.className = "chapter";
-                chapterSection.innerHTML = `
-                    <div class="chapter-header">
-                        <h2 class="chapter-title">${chapter.title}</h2>
-                        <span class="chapter-count">${resources.length} 个页面</span>
-                    </div>
-                    <div class="grid"></div>
-                `;
-
-                const grid = chapterSection.querySelector(".grid");
-                resources.forEach((resource) => {
-                    const merged = {
-                        ...resource,
-                        subject: subject.subject,
-                        chapter: chapter.title
-                    };
-                    grid.appendChild(createCard(merged));
-                });
-
-                chapterLayout.appendChild(chapterSection);
             });
 
-            countMeta.textContent = `学科：${subject.subject}，显示 ${visibleCount} / ${getResourceCount(subject)} 个资源`;
-            emptyState.style.display = visibleCount ? "none" : "block";
-            if (!visibleCount) {
+            countMeta.textContent = `学科：${subject.subject}，显示 ${visibleCount} / ${getResourceCount(subject)} 个页面`;
+            emptyState.style.display = visiblePartCount ? "none" : "block";
+            if (!visiblePartCount) {
                 emptyState.textContent = "当前筛选条件下没有匹配资源，请调整搜索词或切换学科。";
             }
         }
@@ -503,7 +587,7 @@
                 const li = document.createElement("li");
                 const link = document.createElement("a");
                 link.href = item.file;
-                link.textContent = `${item.subject} / ${item.chapter} / ${item.title}（${item.at}）`;
+                link.textContent = `${item.subject} / ${item.part} / ${item.chapter} / ${item.title}（${item.at}）`;
                 link.addEventListener("click", () => writeRecent(item));
                 li.appendChild(link);
                 recentList.appendChild(li);
@@ -512,7 +596,7 @@
 
         function renderAll() {
             renderSubjectTabs();
-            renderChapters(searchInput.value);
+            renderParts(searchInput.value);
             renderRecent();
         }
 
