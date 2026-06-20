@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>力矩演示</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f4f6f9;
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        .card {
+            background: #fff;
+            padding: 20px 20px 15px;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+            border: 1px solid #dee2e6;
+        }
+        canvas {
+            display: block;
+            width: 600px;
+            height: 500px;
+            border-radius: 6px;
+            background: white;
+            cursor: default;
+        }
+        .controls {
+            margin-top: 14px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            font-size: 14px;
+            color: #333;
+            flex-wrap: wrap;
+        }
+        .controls button {
+            padding: 6px 20px;
+            background: #0d6efd;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.2s;
+        }
+        .controls button:hover {
+            background: #0b5ed7;
+        }
+        .controls input[type="range"] {
+            width: 120px;
+            cursor: pointer;
+        }
+        .controls span#speedDisplay {
+            font-weight: bold;
+            min-width: 40px;
+            text-align: center;
+            color: #0d6efd;
+        }
+        .footer {
+            margin-top: 10px;
+            font-size: 13px;
+            color: #6c757d;
+            text-align: center;
+        }
+        .footer strong {
+            color: #212529;
+        }
+        .legend {
+            display: flex;
+            gap: 12px;
+            font-size: 13px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            position: relative;
+        }
+        .color-box {
+            width: 14px;
+            height: 4px;
+            border-radius: 2px;
+        }
+        .vector {
+            position: relative;
+            display: inline-block;
+            font-style: italic;
+            font-weight: bold;
+        }
+        .vector::after {
+            content: '→';
+            position: absolute;
+            top: -0.55em;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 1.35em;
+            font-weight: normal;
+            font-style: normal;
+            line-height: 1;
+        }
+        @media (max-width: 650px) {
+            canvas {
+                width: 100%;
+                height: auto;
+            }
+            .controls {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <canvas id="torqueCanvas" width="600" height="500"></canvas>
+        <div class="controls">
+            <div class="legend">
+                <div class="legend-item"><div class="color-box" style="background:#0d6efd;"></div> <span class="vector">r</span></div>
+                <div class="legend-item"><div class="color-box" style="background:#dc3545;"></div> <span class="vector">F</span></div>
+                <div class="legend-item"><div class="color-box" style="background:#28a745;"></div> <span class="vector">M</span></div>
+            </div>
+            <button id="toggleBtn">⏸ 暂停</button>
+            <label>速度:</label>
+            <input type="range" id="speedSlider" min="0.1" max="4.0" step="0.1" value="1.0">
+            <span id="speedDisplay">1.0×</span>
+        </div>
+        <div class="footer">
+            <strong><span class="vector">M</span> = <span class="vector">r</span> × <span class="vector">F</span></strong>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('torqueCanvas');
+        const ctx = canvas.getContext('2d');
+        const toggleBtn = document.getElementById('toggleBtn');
+        const speedSlider = document.getElementById('speedSlider');
+        const speedDisplay = document.getElementById('speedDisplay');
+
+        const O = { x: 0, y: 0 };
+        const rLen = 3.0;
+        const fLen = 2.4;
+        const phiDeg = 35;
+        const phiRad = phiDeg * Math.PI / 180;
+
+        const cx = 300,
+            cy = 290;
+        const scale = 30;
+        const cosA = 0.91;
+        const sinA = 0.415;
+
+        function hMap(x, y) {
+            const px = cx + (x - y) * scale * cosA;
+            const py = cy - (x + y) * scale * sinA;
+            return { px, py };
+        }
+        function vMap(z) {
+            return { px: cx, py: cy - z * scale };
+        }
+
+        function drawVectorLabel(ctx, text, x, y, color, fontSize) {
+            ctx.fillStyle = color;
+            ctx.font = `italic ${fontSize}px "Times New Roman", serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(text, x, y);
+
+            const metrics = ctx.measureText(text);
+            const tw = metrics.width;
+            const margin = 2;
+            const startX = x - tw / 2 - margin;
+            const endX = x + tw / 2 + margin;
+            const arrowY = y - fontSize * 1.15;
+            const arrowHeadSize = 7;
+
+            ctx.beginPath();
+            ctx.moveTo(startX, arrowY);
+            ctx.lineTo(endX, arrowY);
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2.0;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(endX, arrowY);
+            ctx.lineTo(endX - arrowHeadSize, arrowY - arrowHeadSize * 0.6);
+            ctx.lineTo(endX - arrowHeadSize, arrowY + arrowHeadSize * 0.6);
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+
+            ctx.textAlign = 'start';
+            ctx.textBaseline = 'alphabetic';
+        }
+
+        let theta = 0;
+        let isPlaying = true;
+        let speedFactor = 1.0;
+        let animId = null;
+
+        function drawScene(thetaRad) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const Px = rLen * Math.cos(thetaRad);
+            const Py = rLen * Math.sin(thetaRad);
+            const fAngle = thetaRad + phiRad;
+            const Fx = Px + fLen * Math.cos(fAngle);
+            const Fy = Py + fLen * Math.sin(fAngle);
+
+            // 扩大后的底板
+            const bgVerts = [
+                { x: -8, y: -8 }, { x: 8, y: -8 },
+                { x: 8, y: 8 }, { x: -8, y: 8 }
+            ];
+            const bgMapped = bgVerts.map(v => hMap(v.x, v.y));
+            ctx.beginPath();
+            ctx.moveTo(bgMapped[0].px, bgMapped[0].py);
+            for (let i = 1; i < bgMapped.length; i++) ctx.lineTo(bgMapped[i].px, bgMapped[i].py);
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(80, 140, 255, 0.10)';
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(80, 140, 255, 0.5)';
+            ctx.lineWidth = 2.0;
+            ctx.stroke();
+
+            ctx.strokeStyle = 'rgba(80, 140, 255, 0.15)';
+            ctx.lineWidth = 0.8;
+            const gridSteps = 6;
+            for (let i = 1; i < gridSteps; i++) {
+                const t = i / gridSteps;
+                const p1 = { x: bgVerts[0].x + (bgVerts[1].x - bgVerts[0].x) * t, y: bgVerts[0].y + (bgVerts[1].y - bgVerts[0].y) * t };
+                const p2 = { x: bgVerts[3].x + (bgVerts[2].x - bgVerts[3].x) * t, y: bgVerts[3].y + (bgVerts[2].y - bgVerts[3].y) * t };
+                const m1 = hMap(p1.x, p1.y);
+                const m2 = hMap(p2.x, p2.y);
+                ctx.beginPath();
+                ctx.moveTo(m1.px, m1.py);
+                ctx.lineTo(m2.px, m2.py);
+                ctx.stroke();
+            }
+            for (let i = 1; i < gridSteps; i++) {
+                const t = i / gridSteps;
+                const p1 = { x: bgVerts[0].x + (bgVerts[3].x - bgVerts[0].x) * t, y: bgVerts[0].y + (bgVerts[3].y - bgVerts[0].y) * t };
+                const p2 = { x: bgVerts[1].x + (bgVerts[2].x - bgVerts[1].x) * t, y: bgVerts[1].y + (bgVerts[2].y - bgVerts[1].y) * t };
+                const m1 = hMap(p1.x, p1.y);
+                const m2 = hMap(p2.x, p2.y);
+                ctx.beginPath();
+                ctx.moveTo(m1.px, m1.py);
+                ctx.lineTo(m2.px, m2.py);
+                ctx.stroke();
+            }
+
+            const rStart = hMap(0, 0);
+            const rEnd = hMap(Px, Py);
+            ctx.beginPath();
+            ctx.strokeStyle = '#0d6efd';
+            ctx.lineWidth = 2.8;
+            ctx.moveTo(rStart.px, rStart.py);
+            ctx.lineTo(rEnd.px, rEnd.py);
+            ctx.stroke();
+            const rAng = Math.atan2(rEnd.py - rStart.py, rEnd.px - rStart.px);
+            const arrLen = 10;
+            ctx.fillStyle = '#0d6efd';
+            ctx.beginPath();
+            ctx.moveTo(rEnd.px, rEnd.py);
+            ctx.lineTo(rEnd.px - arrLen * Math.cos(rAng - 0.4), rEnd.py - arrLen * Math.sin(rAng - 0.4));
+            ctx.lineTo(rEnd.px - arrLen * Math.cos(rAng + 0.4), rEnd.py - arrLen * Math.sin(rAng + 0.4));
+            ctx.closePath();
+            ctx.fill();
+            const rMidX = (rStart.px + rEnd.px) / 2 - 16;
+            const rMidY = (rStart.py + rEnd.py) / 2 + 6;
+            drawVectorLabel(ctx, 'r', rMidX, rMidY, '#0d6efd', 18);
+
+            const extLen = 38;
+            const extX = rEnd.px + extLen * Math.cos(rAng);
+            const extY = rEnd.py + extLen * Math.sin(rAng);
+            ctx.beginPath();
+            ctx.setLineDash([4, 4]);
+            ctx.strokeStyle = '#0d6efd';
+            ctx.lineWidth = 1.2;
+            ctx.moveTo(rEnd.px, rEnd.py);
+            ctx.lineTo(extX, extY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            const fStart = hMap(Px, Py);
+            const fEnd = hMap(Fx, Fy);
+            ctx.beginPath();
+            ctx.strokeStyle = '#dc3545';
+            ctx.lineWidth = 2.8;
+            ctx.moveTo(fStart.px, fStart.py);
+            ctx.lineTo(fEnd.px, fEnd.py);
+            ctx.stroke();
+            const fAngScreen = Math.atan2(fEnd.py - fStart.py, fEnd.px - fStart.px);
+            ctx.fillStyle = '#dc3545';
+            ctx.beginPath();
+            ctx.moveTo(fEnd.px, fEnd.py);
+            ctx.lineTo(fEnd.px - arrLen * Math.cos(fAngScreen - 0.4), fEnd.py - arrLen * Math.sin(fAngScreen - 0.4));
+            ctx.lineTo(fEnd.px - arrLen * Math.cos(fAngScreen + 0.4), fEnd.py - arrLen * Math.sin(fAngScreen + 0.4));
+            ctx.closePath();
+            ctx.fill();
+            const fMidX = (fStart.px + fEnd.px) / 2 + 12;
+            const fMidY = (fStart.py + fEnd.py) / 2 - 4;
+            drawVectorLabel(ctx, 'F', fMidX, fMidY, '#dc3545', 18);
+
+            const dxF = Fx - Px;
+            const dyF = Fy - Py;
+            const lenF = Math.sqrt(dxF * dxF + dyF * dyF);
+            const uxF = dxF / lenF;
+            const uyF = dyF / lenF;
+            const t = ((O.x - Px) * uxF + (O.y - Py) * uyF);
+            const Hx = Px + t * uxF;
+            const Hy = Py + t * uyF;
+
+            const hP = hMap(Px, Py);
+            const hH = hMap(Hx, Hy);
+            ctx.beginPath();
+            ctx.setLineDash([4, 4]);
+            ctx.strokeStyle = '#dc3545';
+            ctx.lineWidth = 1.2;
+            ctx.moveTo(hP.px, hP.py);
+            ctx.lineTo(hH.px, hH.py);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            const hStart = hMap(O.x, O.y);
+            const hEnd = hMap(Hx, Hy);
+            ctx.beginPath();
+            ctx.strokeStyle = '#fd7e14';
+            ctx.lineWidth = 2.0;
+            ctx.moveTo(hStart.px, hStart.py);
+            ctx.lineTo(hEnd.px, hEnd.py);
+            ctx.stroke();
+
+            const midArmX = (hStart.px + hEnd.px) / 2 - 28;
+            const midArmY = (hStart.py + hEnd.py) / 2 + 18;
+            ctx.fillStyle = '#fd7e14';
+            ctx.font = 'italic 14px "Times New Roman", serif';
+            ctx.fillText('rsinφ', midArmX, midArmY);
+
+            const hO = hMap(O.x, O.y);
+            const vHO = { px: hO.px - hH.px, py: hO.py - hH.py };
+            const vHP = { px: hP.px - hH.px, py: hP.py - hH.py };
+            const lenHO = Math.sqrt(vHO.px * vHO.px + vHO.py * vHO.py);
+            const lenHP = Math.sqrt(vHP.px * vHP.px + vHP.py * vHP.py);
+            if (lenHO > 1e-6 && lenHP > 1e-6) {
+                const uHO = { x: vHO.px / lenHO, y: vHO.py / lenHO };
+                const uHP = { x: vHP.px / lenHP, y: vHP.py / lenHP };
+                const d = 10;
+                const A = { x: hH.px + d * uHO.x, y: hH.py + d * uHO.y };
+                const B = { x: hH.px + d * uHP.x, y: hH.py + d * uHP.y };
+                const C = { x: hH.px + d * uHO.x + d * uHP.x, y: hH.py + d * uHO.y + d * uHP.y };
+                ctx.beginPath();
+                ctx.moveTo(A.x, A.y);
+                ctx.lineTo(C.x, C.y);
+                ctx.lineTo(B.x, B.y);
+                ctx.strokeStyle = '#212529';
+                ctx.lineWidth = 1.8;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+                ctx.lineCap = 'butt';
+            }
+
+            const arcWorldRadius = 0.55;
+            const arcSteps = 60;
+            const worldStartAng = thetaRad;
+            const worldEndAng = fAngle;
+            const worldAngleStep = (worldEndAng - worldStartAng) / arcSteps;
+
+            ctx.beginPath();
+            for (let i = 0; i <= arcSteps; i++) {
+                const a = worldStartAng + i * worldAngleStep;
+                const ax = Px + arcWorldRadius * Math.cos(a);
+                const ay = Py + arcWorldRadius * Math.sin(a);
+                const pt = hMap(ax, ay);
+                if (i === 0) ctx.moveTo(pt.px, pt.py);
+                else ctx.lineTo(pt.px, pt.py);
+            }
+            ctx.strokeStyle = '#e67e22';
+            ctx.lineWidth = 2.6;
+            ctx.lineCap = 'round';
+            ctx.stroke();
+            ctx.lineCap = 'butt';
+
+            const worldMidAng = (worldStartAng + worldEndAng) / 2;
+            const labelWorldDist = arcWorldRadius + 0.4;
+            const labelWX = Px + labelWorldDist * Math.cos(worldMidAng);
+            const labelWY = Py + labelWorldDist * Math.sin(worldMidAng);
+            const labelPt = hMap(labelWX, labelWY);
+            ctx.fillStyle = '#e67e22';
+            ctx.font = 'bold italic 22px "Times New Roman", serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('φ', labelPt.px, labelPt.py);
+            ctx.textAlign = 'start';
+            ctx.textBaseline = 'alphabetic';
+
+            const mLength = rLen * fLen * Math.sin(phiRad) * 1.05;
+            if (mLength > 0.02) {
+                const mStart = vMap(0);
+                const mEnd = vMap(mLength);
+                ctx.beginPath();
+                ctx.strokeStyle = '#28a745';
+                ctx.lineWidth = 2.8;
+                ctx.moveTo(mStart.px, mStart.py);
+                ctx.lineTo(mEnd.px, mEnd.py);
+                ctx.stroke();
+                const mAng = -Math.PI / 2;
+                ctx.fillStyle = '#28a745';
+                ctx.beginPath();
+                ctx.moveTo(mEnd.px, mEnd.py);
+                ctx.lineTo(mEnd.px - 8 * Math.cos(mAng - 0.4), mEnd.py - 8 * Math.sin(mAng - 0.4));
+                ctx.lineTo(mEnd.px - 8 * Math.cos(mAng + 0.4), mEnd.py - 8 * Math.sin(mAng + 0.4));
+                ctx.closePath();
+                ctx.fill();
+                drawVectorLabel(ctx, 'M', mEnd.px + 10, mEnd.py - 8, '#28a745', 20);
+            }
+
+            const pO = hMap(0, 0);
+            const pP = hMap(Px, Py);
+            ctx.fillStyle = 'black';
+            ctx.font = 'italic 16px "Times New Roman", serif';
+            ctx.fillText('O', pO.px - 22, pO.py + 8);
+            ctx.fillText('P', pP.px + 4, pP.py + 4);
+            ctx.beginPath();
+            ctx.arc(pO.px, pO.py, 3.5, 0, 2 * Math.PI);
+            ctx.fillStyle = 'black';
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(pP.px, pP.py, 3.5, 0, 2 * Math.PI);
+            ctx.fillStyle = 'black';
+            ctx.fill();
+
+            const zLen = mLength + 18;
+            const zTop = vMap(zLen);
+            ctx.fillStyle = '#888';
+            ctx.font = '13px Arial';
+            ctx.fillText('z', zTop.px - 26, zTop.py + 6);
+            ctx.beginPath();
+            ctx.setLineDash([4, 4]);
+            ctx.moveTo(pO.px, pO.py);
+            ctx.lineTo(zTop.px, zTop.py);
+            ctx.strokeStyle = '#aaa';
+            ctx.lineWidth = 1.0;
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
+
+        function animate() {
+            if (!isPlaying) return;
+            theta += 0.015 * speedFactor;
+            drawScene(theta);
+            animId = requestAnimationFrame(animate);
+        }
+
+        function startLoop() {
+            if (animId) cancelAnimationFrame(animId);
+            isPlaying = true;
+            toggleBtn.textContent = '⏸ 暂停';
+            animate();
+        }
+
+        function stopLoop() {
+            if (animId) cancelAnimationFrame(animId);
+            isPlaying = false;
+            toggleBtn.textContent = '▶ 继续';
+        }
+
+        toggleBtn.addEventListener('click', () => {
+            isPlaying ? stopLoop() : startLoop();
+        });
+
+        speedSlider.addEventListener('input', (e) => {
+            speedFactor = parseFloat(e.target.value);
+            speedDisplay.textContent = speedFactor.toFixed(1) + '×';
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === ' ') {
+                e.preventDefault();
+                toggleBtn.click();
+            }
+        });
+
+        speedDisplay.textContent = '1.0×';
+        startLoop();
+    </script>
+</body>
+</html>

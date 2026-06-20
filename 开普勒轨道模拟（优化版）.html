@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>开普勒轨道 · 真实物理 (S1=S2)</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f5f6f8;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .container {
+            max-width: 1650px;
+            width: 100%;
+            background: #fff;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+        }
+        canvas {
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            background: #fff;
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 15px;
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .controls-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .controls-group label {
+            font-weight: 600;
+            font-size: 14px;
+            color: #333;
+        }
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .slider-row input[type="range"] {
+            flex: 1;
+        }
+        .val-text {
+            min-width: 90px;
+            text-align: right;
+            font-weight: bold;
+            color: #555;
+        }
+        .btn-reset-small {
+            padding: 2px 10px;
+            background: #e67e22;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: background 0.2s;
+        }
+        .btn-reset-small:hover {
+            background: #d35400;
+        }
+        .btn {
+            padding: 8px 16px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        .btn:hover {
+            background: #2980b9;
+        }
+        .btn.reset {
+            background: #2c3e50;
+        }
+        .btn.reset:hover {
+            background: #1a252f;
+        }
+        .btn.start {
+            background: #2ecc71;
+        }
+        .btn.start:hover {
+            background: #27ae60;
+        }
+        .btn.pause {
+            background: #e67e22;
+        }
+        .btn.pause:hover {
+            background: #d35400;
+        }
+        .btn.resume {
+            background: #27ae60;
+        }
+        .btn.resume:hover {
+            background: #1e8449;
+        }
+        .btn.auto {
+            background: #9b59b6;
+        }
+        .btn.auto:hover {
+            background: #8e44ad;
+        }
+        .btn:disabled {
+            background: #bdc3c7 !important;
+            cursor: not-allowed;
+        }
+        h3 {
+            margin: 0 0 12px;
+            color: #333;
+            text-align: center;
+            font-weight: 500;
+        }
+        select {
+            padding: 6px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            background: #fff;
+            font-size: 14px;
+            width: 100%;
+        }
+        @media (max-width: 800px) {
+            .controls { grid-template-columns: 1fr 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h3>⚡ 开普勒轨道 · 真实物理</h3>
+    <canvas id="canvas" width="1600" height="900"></canvas>
+    <div class="controls">
+        <div class="controls-group">
+            <label>半长轴 a <span class="val-text" id="val-a">1.496e8 km</span></label>
+            <div class="slider-row">
+                <input type="range" id="semimajor" min="80" max="400" value="200" step="1">
+                <button class="btn-reset-small" id="resetA">↺</button>
+            </div>
+        </div>
+        <div class="controls-group">
+            <label>偏心率 e <span class="val-text" id="val-e">0.50</span></label>
+            <div class="slider-row">
+                <input type="range" id="eccentricity" min="0.0" max="0.967" value="0.50" step="0.001">
+                <button class="btn-reset-small" id="resetE">↺</button>
+            </div>
+        </div>
+        <div class="controls-group">
+            <label>速度倍率 <span class="val-text" id="val-speed">0.30x</span></label>
+            <div class="slider-row">
+                <input type="range" id="speed" min="0.01" max="2.0" value="0.30" step="0.01">
+                <button class="btn-reset-small" id="resetSpeed">↺</button>
+            </div>
+        </div>
+        <div class="controls-group">
+            <label>预设天体参数</label>
+            <select id="presetBody">
+                <option value="custom">⚙️ 自定义参数</option>
+                <option value="earth">🌍 地球 (e = 0.0167)</option>
+                <option value="mercury">🌑 水星 (e = 0.2056)</option>
+                <option value="halley">☄️ 哈雷彗星 (e = 0.967)</option>
+                <option value="hohmann">🚀 霍曼转移轨道 (e = 0.50)</option>
+            </select>
+        </div>
+        <div class="controls-group">
+            <label>运行控制</label>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button class="btn start" id="startBtn">▶ 记录S1</button>
+                <button class="btn pause" id="pauseBtn">⏸️ 暂停截取</button>
+                <button class="btn resume" id="resumeBtn" disabled>▶️ 验证S2</button>
+                <button class="btn reset" id="resetBtn">🔄 重置</button>
+                <button class="btn auto" id="auto30Btn">⏱️ 自动30天</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const cx = 920, cy = 450;               // 太阳（右焦点）屏幕位置
+
+    // ---------- 真实物理常数 ----------
+    const GM_sun = 1.32712440018e11;        // 太阳引力常数 (km³/s²)
+    const SECONDS_PER_DAY = 86400;
+
+    // ---------- 动态比例与天体参数 ----------
+    let a_real_km_target = 1.496e8;          // 当前天体真实半长轴 (km)，默认地球
+    let a_pixel = 200;                       // 视觉半长轴 (像素)
+    let e = 0.50;                            // 偏心率
+    let speed = 0.30;                        // 动画速度倍率
+
+    function getScale() { return a_real_km_target / a_pixel; }
+
+    // 轨道状态（像素世界）
+    let M = 0, E = 0;
+    let x, y;
+    let prevX, prevY;
+
+    // 拖尾历史位置
+    const MAX_TRAIL = 200;
+    let trailPoints = [];
+
+    let isPaused = false;
+    let phase = 'idle';                     
+    let simTime_seconds = 0;                
+    let deltaT_seconds = 0;                 // 第一次记录的 Δt (s)
+
+    // 自动30天模式专用
+    let autoModeActive = false;
+    let autoDeltaTarget = 30 * SECONDS_PER_DAY; // 30天
+
+    // 第一次扇形数据
+    let firstRefM = null, firstRefX = null, firstRefY = null;
+    let firstArea_km2 = null;
+
+    // 第二次参考数据
+    let secondRefM = null, secondRefX = null, secondRefY = null;
+    let secondHasReference = false;
+
+    let cachedScale = 1.0;
+    let cachedCenterX = cx, cachedCenterY = cy;
+
+    // DOM
+    const aInput = document.getElementById('semimajor');
+    const eInput = document.getElementById('eccentricity');
+    const speedInput = document.getElementById('speed');
+    const valA = document.getElementById('val-a');
+    const valE = document.getElementById('val-e');
+    const valSpeed = document.getElementById('val-speed');
+    const startBtn = document.getElementById('startBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const resumeBtn = document.getElementById('resumeBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const auto30Btn = document.getElementById('auto30Btn');
+    const presetSelect = document.getElementById('presetBody');
+
+    // ---------- 升级版开普勒求解器 ----------
+    function solveKepler(ecc, Mval) {
+        let Mn = ((Mval % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+        let Eguess = (ecc > 0.8) ? Math.PI : Mn;
+        let delta = 1, iterations = 0;
+        const maxIter = 50, epsilon = 1e-6;
+        while (Math.abs(delta) > epsilon && iterations < maxIter) {
+            delta = (Eguess - ecc * Math.sin(Eguess) - Mn) / (1 - ecc * Math.cos(Eguess));
+            Eguess -= delta;
+            iterations++;
+        }
+        return Eguess;
+    }
+
+    // ---------- 物理量 ----------
+    function get_a_km() { return a_real_km_target; }
+    function get_b_km() { return a_real_km_target * Math.sqrt(Math.max(0, 1 - e * e)); }
+    function getMeanMotion() {
+        return Math.sqrt(GM_sun / (a_real_km_target * a_real_km_target * a_real_km_target));
+    }
+    function getSpecificAngularMomentum() {
+        return Math.sqrt(GM_sun * a_real_km_target * (1 - e * e));
+    }
+
+    function getEllipsePoint(Ecc) {
+        const b_pixel = a_pixel * Math.sqrt(Math.max(0, 1 - e * e));
+        return { x: a_pixel * Math.cos(Ecc), y: b_pixel * Math.sin(Ecc) };
+    }
+
+    function updateCachedScale() {
+        const maxR_pixel = a_pixel * (1 + e) + 50;
+        cachedScale = Math.min(1.0, (W / 2 - 50) / maxR_pixel);
+        cachedCenterX = cx - a_pixel * e * cachedScale;
+        cachedCenterY = cy;
+    }
+
+    function toScreen(px, py) {
+        return { sx: cachedCenterX + px * cachedScale, sy: cachedCenterY - py * cachedScale };
+    }
+
+    function setSlidersEnabled(enable) {
+        aInput.disabled = !enable;
+        eInput.disabled = !enable;
+        speedInput.disabled = !enable;
+    }
+
+    function resetOrbit(applyParams = true) {
+        if (applyParams) {
+            a_pixel = parseFloat(aInput.value);
+            e = parseFloat(eInput.value);
+            speed = parseFloat(speedInput.value);
+        }
+        M = 0; E = 0;
+        const p = getEllipsePoint(E);
+        x = p.x; y = p.y;
+        prevX = x; prevY = y;
+        trailPoints = [];
+        isPaused = false;
+        phase = 'idle'; simTime_seconds = 0; deltaT_seconds = 0;
+        firstRefM = firstRefX = firstRefY = null;
+        firstArea_km2 = null;
+        secondRefM = secondRefX = secondRefY = null;
+        secondHasReference = false;
+        autoModeActive = false;
+        setSlidersEnabled(true);
+        startBtn.disabled = false; pauseBtn.disabled = false; resumeBtn.disabled = true;
+        auto30Btn.disabled = false;
+        updateCachedScale();
+    }
+
+    function updatePhysics() {
+        if (isPaused && !autoModeActive) return;
+
+        const dt = 0.02 * speed;
+        M += dt;
+        if (M > 2 * Math.PI) M -= 2 * Math.PI;
+
+        const n = getMeanMotion();
+        const dt_seconds = dt / n;
+
+        if (phase === 'firstRunning' || phase === 'secondRunning') {
+            simTime_seconds += dt_seconds;
+        }
+
+        // 自动30天模式：到达目标时间自动切换阶段
+        if (autoModeActive) {
+            if (phase === 'firstRunning' && simTime_seconds >= autoDeltaTarget) {
+                // 完成S1扫描，自动暂停并记录
+                simTime_seconds = autoDeltaTarget;
+                deltaT_seconds = autoDeltaTarget;
+                const h = getSpecificAngularMomentum();
+                firstArea_km2 = (h / 2) * deltaT_seconds;
+                // 记录S1参考点
+                firstRefM = firstRefM; // 已记录
+                // 进入firstPaused状态，然后立即开始第二阶段
+                phase = 'firstPaused';
+                setSlidersEnabled(false);
+                // 自动触发继续（模拟点击“验证S2”）
+                setTimeout(() => resumeSim(), 100);
+            } else if (phase === 'secondRunning' && simTime_seconds >= autoDeltaTarget) {
+                // 完成S2扫描，自动暂停
+                simTime_seconds = autoDeltaTarget;
+                M = (secondRefM + n * autoDeltaTarget) % (2 * Math.PI);
+                if (M < 0) M += 2 * Math.PI;
+                isPaused = true;
+                phase = 'secondPaused';
+                autoModeActive = false;
+                startBtn.disabled = true;
+                pauseBtn.disabled = true;
+                resumeBtn.disabled = true;
+                auto30Btn.disabled = false;
+            }
+            return;
+        }
+
+        // 手动模式下的第二阶段自动暂停
+        if (phase === 'secondRunning' && deltaT_seconds > 0 && simTime_seconds >= deltaT_seconds) {
+            simTime_seconds = deltaT_seconds;
+            M = (secondRefM + n * deltaT_seconds) % (2 * Math.PI);
+            if (M < 0) M += 2 * Math.PI;
+            isPaused = true;
+            phase = 'secondPaused';
+            startBtn.disabled = true;
+            pauseBtn.disabled = true;
+            resumeBtn.disabled = true;
+            auto30Btn.disabled = false;
+        }
+
+        E = solveKepler(e, M);
+        const p = getEllipsePoint(E);
+        prevX = x; prevY = y;
+        x = p.x; y = p.y;
+
+        // 拖尾更新
+        const screen = toScreen(x, y);
+        trailPoints.push({ sx: screen.sx, sy: screen.sy, v: Math.sqrt(GM_sun * (2 / getCurrentR_km() - 1 / a_real_km_target)) });
+        if (trailPoints.length > MAX_TRAIL) trailPoints.shift();
+    }
+
+    function getCurrentR_km() {
+        const rVecX = x - a_pixel * e;
+        const rVecY = y;
+        const r_pixel = Math.sqrt(rVecX * rVecX + rVecY * rVecY);
+        return r_pixel * getScale();
+    }
+
+    // ---------- 绘图函数 ----------
+    function drawArrow(ctx, x1, y1, x2, y2, color, lw, alpha = 1.0) {
+        const headLen = 12, headAngle = Math.PI / 7;
+        const dx = x2 - x1, dy = y2 - y1;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len < 1) return;
+        const ang = Math.atan2(dy, dx);
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lw;
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(x2, y2);
+        ctx.lineTo(x2 - headLen * Math.cos(ang - headAngle), y2 - headLen * Math.sin(ang - headAngle));
+        ctx.lineTo(x2 - headLen * Math.cos(ang + headAngle), y2 - headLen * Math.sin(ang + headAngle));
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.restore();
+    }
+
+    function drawEllipseSector(ctx, M_start, M_end, color, alpha = 0.25) {
+        if (M_end <= M_start) return;
+        const steps = Math.max(40, Math.ceil((M_end - M_start) / 0.03));
+        const points = [];
+        for (let i = 0; i <= steps; i++) {
+            let Mi = M_start + (M_end - M_start) * i / steps;
+            Mi = ((Mi % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+            const Ei = solveKepler(e, Mi);
+            const p = getEllipsePoint(Ei);
+            points.push(p);
+        }
+        if (points.length < 2) return;
+        const screenPoints = points.map(p => toScreen(p.x, p.y));
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        for (let sp of screenPoints) ctx.lineTo(sp.sx, sp.sy);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.globalAlpha = alpha;
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        for (let sp of screenPoints) ctx.lineTo(sp.sx, sp.sy);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2.0 * cachedScale;
+        ctx.stroke();
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, W, H);
+        updateCachedScale();
+        const scale = cachedScale;
+        const centerX = cachedCenterX, centerY = cachedCenterY;
+        const b_pixel = a_pixel * Math.sqrt(Math.max(0, 1 - e * e));
+
+        // 椭圆
+        ctx.beginPath();
+        ctx.ellipse(centerX, centerY, a_pixel * scale, b_pixel * scale, 0, 0, 2 * Math.PI);
+        ctx.strokeStyle = '#222';
+        ctx.lineWidth = 2.5 * scale;
+        ctx.stroke();
+
+        // 关键点
+        const keyPoints = [
+            { theta: 0, label: '近日点', color: '#3498db' },
+            { theta: Math.PI, label: '远日点', color: '#e74c3c' },
+            { theta: Math.PI / 2, label: '上端点', color: '#888' },
+            { theta: 3 * Math.PI / 2, label: '下端点', color: '#888' }
+        ];
+        for (let k of keyPoints) {
+            const p = getEllipsePoint(k.theta);
+            const s = toScreen(p.x, p.y);
+            ctx.beginPath();
+            ctx.arc(s.sx, s.sy, 5 * scale, 0, 2 * Math.PI);
+            ctx.fillStyle = k.color;
+            ctx.fill();
+            ctx.fillStyle = '#555';
+            ctx.font = `${13 * scale}px "Segoe UI", Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillText(k.label, s.sx, s.sy - 14 * scale);
+        }
+
+        // 太阳
+        ctx.beginPath();
+        ctx.arc(cx, cy, 14 * scale, 0, 2 * Math.PI);
+        ctx.fillStyle = '#f39c12';
+        ctx.shadowColor = '#f1c40f';
+        ctx.shadowBlur = 30 * scale;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#333';
+        ctx.font = `${16 * scale}px "Segoe UI", Arial`;
+        ctx.textAlign = 'center';
+        ctx.fillText('太阳 (右焦点)', cx, cy + 36 * scale);
+
+        // 拖尾
+        for (let i = 0; i < trailPoints.length; i++) {
+            const pt = trailPoints[i];
+            const alpha = 0.15 + 0.7 * (i / trailPoints.length);
+            ctx.beginPath();
+            ctx.arc(pt.sx, pt.sy, 3 * scale, 0, 2 * Math.PI);
+            ctx.fillStyle = `rgba(44, 62, 80, ${alpha})`;
+            ctx.fill();
+            if (i > 0) {
+                const prev = trailPoints[i-1];
+                ctx.beginPath();
+                ctx.moveTo(prev.sx, prev.sy);
+                ctx.lineTo(pt.sx, pt.sy);
+                ctx.strokeStyle = `rgba(44, 62, 80, ${alpha * 0.5})`;
+                ctx.lineWidth = 1.5 * scale;
+                ctx.stroke();
+            }
+        }
+
+        // S1
+        if (firstRefM !== null && deltaT_seconds > 0) {
+            const dM1 = getMeanMotion() * deltaT_seconds;
+            drawEllipseSector(ctx, firstRefM, firstRefM + dM1, 'rgba(231, 76, 60, 0.45)', 0.35);
+            const midM = firstRefM + dM1 / 2;
+            const pMid = getEllipsePoint(solveKepler(e, midM));
+            const sMid = toScreen(pMid.x, pMid.y);
+            ctx.fillStyle = '#c0392b';
+            ctx.font = `bold ${20 * scale}px "Segoe UI", Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillText('S1', sMid.sx, sMid.sy - 20 * scale);
+        }
+
+        // S2
+        if (secondHasReference && secondRefM !== null && (phase === 'secondRunning' || phase === 'secondPaused')) {
+            const dM2 = getMeanMotion() * simTime_seconds;
+            drawEllipseSector(ctx, secondRefM, secondRefM + dM2, 'rgba(52, 152, 219, 0.45)', 0.35);
+            const midM2 = secondRefM + dM2 / 2;
+            const pMid2 = getEllipsePoint(solveKepler(e, midM2));
+            const sMid2 = toScreen(pMid2.x, pMid2.y);
+            ctx.fillStyle = '#2980b9';
+            ctx.font = `bold ${20 * scale}px "Segoe UI", Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillText('S2', sMid2.sx, sMid2.sy - 20 * scale);
+        }
+
+        // 行星
+        const planetScreen = toScreen(x, y);
+        ctx.beginPath();
+        ctx.arc(planetScreen.sx, planetScreen.sy, 9 * scale, 0, 2 * Math.PI);
+        ctx.fillStyle = '#2c3e50';
+        ctx.shadowColor = 'rgba(0,0,0,0.3)';
+        ctx.shadowBlur = 20 * scale;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        if (isPaused || autoModeActive) {
+            ctx.fillStyle = '#e67e22';
+            ctx.font = `bold ${16 * scale}px "Segoe UI", Arial`;
+            ctx.textAlign = 'left';
+            ctx.fillText(autoModeActive ? '⏱️ 自动扫掠中...' : '⏸ 暂停中', planetScreen.sx + 15 * scale, planetScreen.sy - 15 * scale);
+        }
+
+        // 信息显示
+        let infoX = 520, infoY = 180;
+        const lineH = 34;
+        ctx.font = `bold ${17 * scale}px "Segoe UI", Arial`;
+        ctx.textAlign = 'left';
+
+        if (firstArea_km2 !== null) {
+            ctx.fillStyle = '#c0392b';
+            ctx.fillText(`S1 = ${firstArea_km2.toExponential(2)} km²`, infoX, infoY);
+            infoY += lineH;
+        }
+        if (deltaT_seconds > 0) {
+            ctx.fillStyle = '#333';
+            const days = (deltaT_seconds / SECONDS_PER_DAY).toFixed(1);
+            ctx.fillText(`Δt = ${days} 天 (${deltaT_seconds.toExponential(2)} s)`, infoX, infoY);
+            infoY += lineH;
+        }
+        if (phase === 'secondPaused' && secondHasReference) {
+            const h = getSpecificAngularMomentum();
+            const secondArea = (h / 2) * deltaT_seconds;
+            ctx.fillStyle = '#2980b9';
+            ctx.fillText(`S2 = ${secondArea.toExponential(2)} km²`, infoX, infoY);
+            infoY += lineH;
+            ctx.fillStyle = '#27ae60';
+            ctx.font = `bold ${18 * scale}px "Segoe UI", Arial`;
+            ctx.fillText('✅ S1 = S2   (面积数值相等)', infoX, infoY);
+        }
+
+        // 左下角物理量
+        const r_km = getCurrentR_km();
+        const rMin_km = a_real_km_target * (1 - e);
+        const rMax_km = a_real_km_target * (1 + e);
+        const v_km_s = Math.sqrt(GM_sun * (2 / r_km - 1 / a_real_km_target));
+        const h = getSpecificAngularMomentum();
+        const dAdt_km2_s = h / 2;
+
+        ctx.fillStyle = '#222';
+        ctx.font = `${18 * scale}px "Consolas", monospace`;
+        const leftX = 120;
+        let iY = 55;
+        const lH = 36;
+        ctx.fillText(`向径 r = ${r_km.toExponential(3)} km  (近日点: ${rMin_km.toExponential(3)} / 远日点: ${rMax_km.toExponential(3)})`, leftX, iY);
+        iY += lH;
+        ctx.fillText(`速率 v = ${v_km_s.toFixed(2)} km/s  (近日点更快)`, leftX, iY);
+        iY += lH;
+        ctx.fillText(`比角动量 h = ${h.toExponential(3)} km²/s (守恒)`, leftX, iY);
+        iY += lH;
+        ctx.fillText(`面积速率 dS/dt = ${dAdt_km2_s.toExponential(3)} km²/s`, leftX, iY);
+        iY += lH;
+        ctx.fillText(`半长轴 a = ${a_real_km_target.toExponential(3)} km  偏心率 e = ${e.toFixed(4)}`, leftX, iY);
+        iY += lH;
+        ctx.fillText(`速度倍率 = ${speed.toFixed(2)}x`, leftX, iY);
+    }
+
+    function animate() {
+        updatePhysics();
+        draw();
+        requestAnimationFrame(animate);
+    }
+
+    // ---------- 手动按钮 ----------
+    function startObserving() {
+        if (phase === 'idle') {
+            firstRefM = M; firstRefX = x; firstRefY = y;
+            firstArea_km2 = null;
+            simTime_seconds = 0; isPaused = false;
+            phase = 'firstRunning';
+            startBtn.disabled = true; pauseBtn.disabled = false; resumeBtn.disabled = true;
+            auto30Btn.disabled = true;
+        } else if (phase === 'secondIdle') {
+            secondRefM = M; secondRefX = x; secondRefY = y;
+            secondHasReference = true;
+            simTime_seconds = 0; isPaused = false;
+            phase = 'secondRunning';
+            startBtn.disabled = true; pauseBtn.disabled = true; resumeBtn.disabled = true;
+            auto30Btn.disabled = true;
+        }
+    }
+
+    function pauseSim() {
+        if (phase === 'firstRunning') {
+            deltaT_seconds = simTime_seconds;
+            const h = getSpecificAngularMomentum();
+            firstArea_km2 = (h / 2) * deltaT_seconds;
+            isPaused = true;
+            phase = 'firstPaused';
+            setSlidersEnabled(false);
+            startBtn.disabled = true; pauseBtn.disabled = true; resumeBtn.disabled = false;
+            auto30Btn.disabled = true;
+        }
+    }
+
+    function resumeSim() {
+        if (autoModeActive && phase === 'firstPaused') {
+            // 自动模式：从暂停的S1直接进入S2
+            secondRefM = M; secondRefX = x; secondRefY = y;
+            secondHasReference = true;
+            simTime_seconds = 0;
+            isPaused = false;
+            phase = 'secondRunning';
+            startBtn.disabled = true;
+            pauseBtn.disabled = true;
+            resumeBtn.disabled = true;
+            auto30Btn.disabled = true;
+        } else if (!autoModeActive && phase === 'firstPaused') {
+            // 手动模式
+            secondHasReference = false;
+            secondRefM = secondRefX = secondRefY = null;
+            isPaused = false;
+            phase = 'secondIdle'; simTime_seconds = 0;
+            startBtn.disabled = false;
+            pauseBtn.disabled = true;
+            resumeBtn.disabled = true;
+            auto30Btn.disabled = true;
+        }
+    }
+
+    // ---------- 自动30天 ----------
+    function startAuto30Days() {
+        a_real_km_target = parseFloat(aInput.value) * getScale(); // 保持当前比例
+        a_pixel = parseFloat(aInput.value);
+        e = parseFloat(eInput.value);
+        speed = parseFloat(speedInput.value);
+        M = 0; E = 0;
+        const p = getEllipsePoint(E);
+        x = p.x; y = p.y;
+        prevX = x; prevY = y;
+        trailPoints = [];
+        isPaused = false;
+        phase = 'firstRunning';
+        simTime_seconds = 0;
+        deltaT_seconds = 0;
+        firstRefM = M; firstRefX = x; firstRefY = y;
+        firstArea_km2 = null;
+        secondRefM = secondRefX = secondRefY = null;
+        secondHasReference = false;
+        autoModeActive = true;
+        autoDeltaTarget = 30 * SECONDS_PER_DAY;
+        setSlidersEnabled(false);
+        startBtn.disabled = true;
+        pauseBtn.disabled = true;
+        resumeBtn.disabled = true;
+        auto30Btn.disabled = true;
+        updateCachedScale();
+    }
+
+    function updateParams() {
+        valA.textContent = a_real_km_target.toExponential(3) + ' km';
+        valE.textContent = parseFloat(eInput.value).toFixed(4);
+        valSpeed.textContent = parseFloat(speedInput.value).toFixed(2) + 'x';
+        resetOrbit(true);
+    }
+
+    function customOverride() {
+        presetSelect.value = 'custom';
+        updateParams();
+    }
+
+    // 事件绑定
+    aInput.addEventListener('input', customOverride);
+    eInput.addEventListener('input', customOverride);
+    speedInput.addEventListener('input', customOverride);
+    document.getElementById('resetA').addEventListener('click', () => { aInput.value = 200; updateParams(); });
+    document.getElementById('resetE').addEventListener('click', () => { eInput.value = 0.50; updateParams(); });
+    document.getElementById('resetSpeed').addEventListener('click', () => { speedInput.value = 0.30; updateParams(); });
+    resetBtn.addEventListener('click', () => { resetOrbit(false); });
+    startBtn.addEventListener('click', startObserving);
+    pauseBtn.addEventListener('click', pauseSim);
+    resumeBtn.addEventListener('click', resumeSim);
+    auto30Btn.addEventListener('click', startAuto30Days);
+
+    // 预设天体
+    presetSelect.addEventListener('change', (e) => {
+        const val = e.target.value;
+        if (val === 'earth') {
+            a_real_km_target = 1.496e8; aInput.value = 200; eInput.value = 0.0167; speedInput.value = 1.0;
+        } else if (val === 'mercury') {
+            a_real_km_target = 5.791e7; aInput.value = 77; eInput.value = 0.2056; speedInput.value = 1.2;
+        } else if (val === 'halley') {
+            a_real_km_target = 2.662e9; aInput.value = 380; eInput.value = 0.967; speedInput.value = 0.05;
+        } else if (val === 'hohmann') {
+            a_real_km_target = 1.496e8; aInput.value = 200; eInput.value = 0.50; speedInput.value = 0.30;
+        }
+        if (val !== 'custom') updateParams();
+    });
+
+    resetOrbit(true);
+    animate();
+</script>
+</body>
+</html>

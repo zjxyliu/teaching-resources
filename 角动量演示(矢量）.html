@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>角动量演示</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f8f9fa;
+            margin: 0;
+            font-family: sans-serif;
+        }
+        canvas {
+            background-color: white;
+            border: 1px solid #dee2e6;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        button {
+            padding: 8px 20px;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .description {
+            margin-top: 20px;
+            color: #495057;
+            text-align: center;
+        }
+        /* 矢量符号样式 - 使用SVG */
+        .vec-symbol {
+            display: inline-block;
+            vertical-align: middle;
+            width: 1.8em;
+            height: 1.8em;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="physicsCanvas" width="600" height="500"></canvas>
+    
+    <div class="controls">
+        <button id="toggleBtn">⏸ 暂停</button>
+        <div class="speed-control">
+            <label for="speedSlider">速度:</label>
+            <input type="range" id="speedSlider" min="0.1" max="3.0" step="0.1" value="1.0">
+            <span id="speedDisplay">1.0×</span>
+        </div>
+    </div>
+
+    <div class="description">
+        <p>
+            <strong>角动量演示 </strong>
+            <!-- L 矢量符号 -->
+            <svg class="vec-symbol" viewBox="0 0 60 65">
+                <text x="30" y="45" font-family="'Times New Roman', serif" font-weight="bold" font-style="italic" font-size="56" text-anchor="middle" fill="#000">L</text>
+                <line x1="15" y1="4" x2="45" y2="4" stroke="#000" stroke-width="3"/>
+                <polygon points="45,4 41,1 41,7" fill="#000"/>
+            </svg>
+            =
+            <!-- r 矢量符号 -->
+            <svg class="vec-symbol" viewBox="0 0 60 65">
+                <text x="30" y="45" font-family="'Times New Roman', serif" font-weight="bold" font-style="italic" font-size="56" text-anchor="middle" fill="#000">r</text>
+                <line x1="15" y1="4" x2="45" y2="4" stroke="#000" stroke-width="3"/>
+                <polygon points="45,4 41,1 41,7" fill="#000"/>
+            </svg>
+            ×
+            <!-- mv 矢量符号 -->
+            <svg class="vec-symbol" viewBox="0 0 90 65">
+                <text x="20" y="45" font-family="'Times New Roman', serif" font-weight="bold" font-style="italic" font-size="56" text-anchor="middle" fill="#000">m</text>
+                <text x="70" y="45" font-family="'Times New Roman', serif" font-weight="bold" font-style="italic" font-size="56" text-anchor="middle" fill="#000">v</text>
+                <line x1="50" y1="4" x2="82" y2="4" stroke="#000" stroke-width="3"/>
+                <polygon points="82,4 78,1 78,7" fill="#000"/>
+            </svg>
+        </p>
+        <p>
+            <strong>φ 恒为 90°</strong>（
+            <!-- mv 矢量符号 -->
+            <svg class="vec-symbol" viewBox="0 0 90 65">
+                <text x="20" y="45" font-family="'Times New Roman', serif" font-weight="bold" font-style="italic" font-size="56" text-anchor="middle" fill="#000">m</text>
+                <text x="70" y="45" font-family="'Times New Roman', serif" font-weight="bold" font-style="italic" font-size="56" text-anchor="middle" fill="#000">v</text>
+                <line x1="50" y1="4" x2="82" y2="4" stroke="#000" stroke-width="3"/>
+                <polygon points="82,4 78,1 78,7" fill="#000"/>
+            </svg>
+            始终沿真实圆切线，与
+            <!-- r 矢量符号 -->
+            <svg class="vec-symbol" viewBox="0 0 60 65">
+                <text x="30" y="45" font-family="'Times New Roman', serif" font-weight="bold" font-style="italic" font-size="56" text-anchor="middle" fill="#000">r</text>
+                <line x1="15" y1="4" x2="45" y2="4" stroke="#000" stroke-width="3"/>
+                <polygon points="45,4 41,1 41,7" fill="#000"/>
+            </svg>
+            垂直）
+        </p>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('physicsCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // ----- 物理与投影参数 -----
+        const cx = 300;
+        const cy = 260;
+        const R = 160;
+        const scaleY = 0.55;
+
+        let theta = 0;
+        let isRunning = true;
+        let speed = 1.0;
+        let lastTimestamp = 0;
+
+        // ----- 绘制带填充箭头的矢量线 -----
+        function drawVector(fromx, fromy, tox, toy, color, label, labelOffsetX = 10, labelOffsetY = 10) {
+            const arrowSize = 14;
+            const dx = tox - fromx;
+            const dy = toy - fromy;
+            const angle = Math.atan2(dy, dx);
+            const headAngle = Math.PI / 6;
+
+            // 绘制主线段
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3;
+            ctx.moveTo(fromx, fromy);
+            ctx.lineTo(tox, toy);
+            ctx.stroke();
+
+            // 绘制填充箭头
+            const baseX1 = tox - arrowSize * Math.cos(angle - headAngle);
+            const baseY1 = toy - arrowSize * Math.sin(angle - headAngle);
+            const baseX2 = tox - arrowSize * Math.cos(angle + headAngle);
+            const baseY2 = toy - arrowSize * Math.sin(angle + headAngle);
+
+            ctx.beginPath();
+            ctx.fillStyle = color;
+            ctx.moveTo(tox, toy);
+            ctx.lineTo(baseX1, baseY1);
+            ctx.lineTo(baseX2, baseY2);
+            ctx.closePath();
+            ctx.fill();
+
+            // 绘制标签
+            if (label) {
+                const labelX = tox + labelOffsetX;
+                const labelY = toy + labelOffsetY;
+                
+                if (label === 'mv') {
+                    // m 和 v 靠得更近 (偏移 ±8)
+                    ctx.save();
+                    ctx.fillStyle = color;
+                    ctx.font = "bold italic 18px 'Times New Roman', serif";
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText('m', labelX - 8, labelY);
+                    ctx.restore();
+                    // v 带矢量符号
+                    drawVectorSymbol(ctx, labelX + 8, labelY, 'v', color);
+                } else if (label === 'L' || label === 'r') {
+                    drawVectorSymbol(ctx, labelX, labelY, label, color);
+                } else {
+                    ctx.save();
+                    ctx.fillStyle = color;
+                    ctx.font = "italic 16px 'Times New Roman', serif";
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(label, labelX, labelY);
+                    ctx.restore();
+                }
+            }
+        }
+
+        // ----- 绘制矢量符号及其上方有向线段 -----
+        function drawVectorSymbol(ctx, x, y, label, color) {
+            ctx.save();
+            ctx.fillStyle = color;
+            ctx.font = "bold italic 18px 'Times New Roman', serif";
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(label, x, y);
+
+            // 绘制字母上方的有向线段
+            const yOffset = -13;
+            const lineLen = 7;
+            const arrowLen = 4.5;
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1.8;
+            ctx.beginPath();
+            ctx.moveTo(x - lineLen, y + yOffset);
+            ctx.lineTo(x + lineLen, y + yOffset);
+            ctx.stroke();
+
+            // 箭头头
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(x + lineLen, y + yOffset);
+            ctx.lineTo(x + lineLen - arrowLen, y + yOffset - arrowLen * 0.8);
+            ctx.lineTo(x + lineLen - arrowLen, y + yOffset + arrowLen * 0.8);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // ----- 绘制直角符号 (L形方角) -----
+        function drawRightAngleSymbol(px, py, startAngle, endAngle, size) {
+            const p1x = px + size * Math.cos(startAngle);
+            const p1y = py + size * Math.sin(startAngle);
+            const p2x = px + size * Math.cos(startAngle) + size * Math.cos(endAngle);
+            const p2y = py + size * Math.sin(startAngle) + size * Math.sin(endAngle);
+            const p3x = px + size * Math.cos(endAngle);
+            const p3y = py + size * Math.sin(endAngle);
+            
+            ctx.beginPath();
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 2;
+            ctx.moveTo(p1x, p1y);
+            ctx.lineTo(p2x, p2y);
+            ctx.lineTo(p3x, p3y);
+            ctx.stroke();
+        }
+
+        // ----- 主绘制循环 -----
+        function draw(timestamp) {
+            if (lastTimestamp === 0) {
+                lastTimestamp = timestamp;
+            }
+            let delta = (timestamp - lastTimestamp) / 1000;
+            if (delta > 0.05) delta = 0.05;
+            lastTimestamp = timestamp;
+
+            if (isRunning) {
+                theta -= 1.2 * speed * delta;
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // ----- 1. 背景平行四边形 -----
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(10, 120);
+            ctx.lineTo(550, 120);
+            ctx.lineTo(630, 390);
+            ctx.lineTo(90, 390);
+            ctx.closePath();
+            ctx.strokeStyle = '#cccccc';
+            ctx.lineWidth = 1.2;
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(240, 245, 250, 0.2)';
+            ctx.fill();
+            ctx.restore();
+
+            // ----- 2. 椭圆轨道 (实线) -----
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, R, R * scaleY, 0, 0, 2 * Math.PI);
+            ctx.strokeStyle = '#888';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // ----- 3. 固定点 O 和垂直辅助线 -----
+            ctx.fillStyle = 'black';
+            ctx.font = "italic 16px 'Times New Roman', serif";
+            ctx.fillText('O', cx - 20, cy + 6);
+
+            const inStartY = 120;
+            const inEndY = 390;
+            const endY = 460;
+
+            // 平行四边形内部 (120-390) 画虚线
+            ctx.beginPath();
+            ctx.setLineDash([5, 5]);
+            ctx.strokeStyle = '#999';
+            ctx.lineWidth = 1.5;
+            ctx.moveTo(cx, inStartY);
+            ctx.lineTo(cx, inEndY);
+            ctx.stroke();
+
+            // 平行四边形外部下方 (390-460) 画实线
+            ctx.beginPath();
+            ctx.setLineDash([]);
+            ctx.moveTo(cx, inEndY);
+            ctx.lineTo(cx, endY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // ----- 4. 角动量 L (向上) -----
+            drawVector(cx, cy, cx, cy - 130, '#0056b3', 'L', -20, -10);
+
+            // ----- 5. 角速度 ω (逆时针箭头) -----
+            ctx.beginPath();
+            ctx.ellipse(cx, cy - 70, 25, 8, 0, Math.PI * 0.2, Math.PI * 1.2);
+            ctx.strokeStyle = '#d9534f';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(cx + 20, cy - 65);
+            ctx.lineTo(cx + 26, cy - 69);
+            ctx.lineTo(cx + 18, cy - 73);
+            ctx.fillStyle = '#d9534f';
+            ctx.fill();
+            ctx.font = "italic 16px 'Times New Roman', serif";
+            ctx.fillText('ω', cx + 30, cy - 75);
+
+            // ----- 6. 质点位置 -----
+            const realX = cx + R * Math.cos(theta);
+            const realY = cy + R * Math.sin(theta);
+            const px = realX;
+            const py = cy + (realY - cy) * scaleY;
+
+            // ----- 7. 矢径 r (从 O 指向质点) -----
+            drawVector(cx, cy, px, py, '#28a745', '', 0, 0);
+
+            // ----- 8. r 的延长线虚线 (从 r 方向延伸到质点外) -----
+            const rAngle = theta;
+            const extLen = 55;
+            const extX = px + extLen * Math.cos(rAngle);
+            const extY = py + extLen * Math.sin(rAngle) * scaleY;
+            ctx.beginPath();
+            ctx.setLineDash([4, 4]);
+            ctx.moveTo(px, py);
+            ctx.lineTo(extX, extY);
+            ctx.strokeStyle = '#28a745';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // ----- 9. 动量 mv (切线方向) -----
+            const mvAngle = theta - Math.PI / 2;
+            const mvLen = 80;
+            const mvRealX = mvLen * Math.cos(mvAngle);
+            const mvRealY = mvLen * Math.sin(mvAngle);
+            const mvProjX = mvRealX;
+            const mvProjY = mvRealY * scaleY;
+            drawVector(px, py, px + mvProjX, py + mvProjY, '#dc3545', 'mv');
+
+            // ----- 10. 直角符号表示 φ (r 与 mv 垂直) -----
+            const symbolSize = 16;
+            drawRightAngleSymbol(px, py, rAngle, mvAngle, symbolSize);
+
+            // ----- 11. φ 标签 (放在直角符号外侧) -----
+            const midAngle = (rAngle + mvAngle) / 2;
+            const labelR = symbolSize + 20;
+            const lx = px + labelR * Math.cos(midAngle);
+            const ly = py + labelR * Math.sin(midAngle) * scaleY;
+            ctx.fillStyle = '#222';
+            ctx.font = "italic 22px 'Times New Roman', serif";
+            ctx.fillText('φ', lx, ly);
+
+            // ----- 12. 质点 m -----
+            ctx.beginPath();
+            ctx.arc(px, py, 7, 0, 2 * Math.PI);
+            ctx.fillStyle = '#343a40';
+            ctx.fill();
+            ctx.fillText('m', px + 12, py - 12);
+
+            // ----- 13. r 标签 (带矢量符号，位置避开 r 线段) -----
+            const rMidX = (cx + px) / 2;
+            const rMidY = (cy + py) / 2;
+            const rNormX = (px - cx) / R;
+            const rNormY = (py - cy) / (R * scaleY);
+            const len = Math.sqrt(rNormX * rNormX + rNormY * rNormY);
+            if (len > 0.01) {
+                // 沿径向偏移 -8，再沿法向偏移 20，使标签位于 r 矢量一侧
+                const offsetR = -8;
+                const offsetN = 20;
+                const offsetX = offsetR * (rNormX / len) + offsetN * (-rNormY / len);
+                const offsetY = offsetR * (rNormY / len) + offsetN * (rNormX / len);
+                drawVectorSymbol(ctx, rMidX + offsetX, rMidY + offsetY, 'r', '#28a745');
+            } else {
+                drawVectorSymbol(ctx, rMidX - 10, rMidY - 5, 'r', '#28a745');
+            }
+
+            requestAnimationFrame(draw);
+        }
+
+        // ----- 交互控制 -----
+        const toggleBtn = document.getElementById('toggleBtn');
+        toggleBtn.addEventListener('click', function() {
+            isRunning = !isRunning;
+            toggleBtn.textContent = isRunning ? '⏸ 暂停' : '▶ 继续';
+        });
+
+        const speedSlider = document.getElementById('speedSlider');
+        const speedDisplay = document.getElementById('speedDisplay');
+        speedSlider.addEventListener('input', function() {
+            speed = parseFloat(this.value);
+            speedDisplay.textContent = speed.toFixed(1) + '×';
+        });
+
+        requestAnimationFrame(draw);
+    </script>
+</body>
+</html>
