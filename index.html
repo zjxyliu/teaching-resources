@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>教学资源管理首页</title>
+    <style>
+        :root {
+            --bg: #f4f6fb;
+            --panel: #ffffff;
+            --text: #1f2a37;
+            --muted: #5f6b7a;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --border: #d9e0ea;
+            --shadow: 0 8px 28px rgba(15, 23, 42, 0.08);
+            --radius: 14px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+            color: var(--text);
+            background: linear-gradient(180deg, #eef2ff 0%, var(--bg) 45%, var(--bg) 100%);
+            min-height: 100vh;
+        }
+
+        .page {
+            width: min(980px, 92vw);
+            margin: 34px auto 40px;
+        }
+
+        .header {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: var(--shadow);
+            padding: 24px 24px 20px;
+        }
+
+        .title {
+            margin: 0 0 6px;
+            font-size: 30px;
+            letter-spacing: 0.3px;
+        }
+
+        .subtitle {
+            margin: 0 0 16px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        .toolbar {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .search {
+            width: 100%;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .search:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+
+        .meta {
+            color: var(--muted);
+            font-size: 13px;
+            white-space: nowrap;
+        }
+
+        .grid {
+            margin-top: 18px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 14px;
+        }
+
+        .card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 15px 14px 14px;
+            box-shadow: 0 3px 10px rgba(15, 23, 42, 0.04);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .name {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .desc {
+            margin: 0;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.45;
+            min-height: 38px;
+        }
+
+        .actions {
+            margin-top: auto;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .btn {
+            border: 1px solid transparent;
+            border-radius: 9px;
+            padding: 8px 12px;
+            font-size: 13px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: transform 0.12s, background-color 0.2s, border-color 0.2s;
+            user-select: none;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+        }
+
+        .btn-primary:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn-secondary {
+            background: #eef2ff;
+            color: #233876;
+            border-color: #c8d4ff;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e7ff;
+        }
+
+        .file {
+            font-size: 12px;
+            color: #64748b;
+            background: #f8fafc;
+            border: 1px dashed #d4dbe6;
+            border-radius: 8px;
+            padding: 6px 8px;
+            overflow-wrap: anywhere;
+        }
+
+        .empty {
+            margin-top: 14px;
+            padding: 18px;
+            text-align: center;
+            color: var(--muted);
+            background: #fff;
+            border: 1px dashed var(--border);
+            border-radius: 12px;
+            display: none;
+        }
+
+        .recent {
+            margin-top: 18px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+        }
+
+        .recent-title {
+            margin: 0 0 8px;
+            font-size: 14px;
+        }
+
+        .recent-list {
+            margin: 0;
+            padding-left: 18px;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        @media (max-width: 640px) {
+            .toolbar {
+                grid-template-columns: 1fr;
+            }
+            .meta {
+                white-space: normal;
+            }
+        }
+    </style>
+</head>
+<body>
+    <main class="page">
+        <section class="header">
+            <h1 class="title">教学资源管理首页</h1>
+            <p class="subtitle">集中管理课堂演示页面，支持搜索、快速打开和最近访问记录。</p>
+            <div class="toolbar">
+                <input id="searchInput" class="search" type="search" placeholder="搜索名称或关键词，例如：角动量、开普勒..." />
+                <span id="countMeta" class="meta">共 0 个资源</span>
+            </div>
+        </section>
+
+        <section id="resourceGrid" class="grid"></section>
+        <section id="emptyState" class="empty">没有匹配的资源，请尝试其他关键词。</section>
+
+        <section class="recent">
+            <h2 class="recent-title">最近访问</h2>
+            <ol id="recentList" class="recent-list"></ol>
+        </section>
+    </main>
+
+    <script>
+        const resources = [
+            {
+                id: "torque",
+                title: "力矩演示",
+                file: "html-pages/力矩.html",
+                description: "展示力矩与转动效果，适合讲解力和支点关系。",
+                keywords: ["力矩", "转动", "杠杆"]
+            },
+            {
+                id: "kepler",
+                title: "开普勒轨道模拟（优化版）",
+                file: "html-pages/开普勒轨道模拟（优化版）.html",
+                description: "基于开普勒定律与面积速度，展示轨道运动过程。",
+                keywords: ["开普勒", "轨道", "天体运动", "行星"]
+            },
+            {
+                id: "angular-momentum",
+                title: "角动量演示（矢量）",
+                file: "html-pages/角动量演示(矢量）.html",
+                description: "可视化角动量矢量变化，帮助理解方向和大小关系。",
+                keywords: ["角动量", "矢量", "旋转"]
+            }
+        ];
+
+        const storageKey = "teaching_resource_recent_visits";
+        const searchInput = document.getElementById("searchInput");
+        const resourceGrid = document.getElementById("resourceGrid");
+        const countMeta = document.getElementById("countMeta");
+        const emptyState = document.getElementById("emptyState");
+        const recentList = document.getElementById("recentList");
+
+        function readRecent() {
+            try {
+                const data = JSON.parse(localStorage.getItem(storageKey) || "[]");
+                return Array.isArray(data) ? data : [];
+            } catch (err) {
+                return [];
+            }
+        }
+
+        function writeRecent(item) {
+            const current = readRecent().filter((v) => v.file !== item.file);
+            const next = [{ ...item, at: new Date().toLocaleString() }, ...current].slice(0, 8);
+            localStorage.setItem(storageKey, JSON.stringify(next));
+            renderRecent();
+        }
+
+        function openResource(item, newTab) {
+            writeRecent(item);
+            if (newTab) {
+                window.open(item.file, "_blank", "noopener");
+            } else {
+                window.location.href = item.file;
+            }
+        }
+
+        function createCard(item) {
+            const card = document.createElement("article");
+            card.className = "card";
+            card.innerHTML = `
+                <h3 class="name">${item.title}</h3>
+                <p class="desc">${item.description}</p>
+                <div class="file">${item.file}</div>
+                <div class="actions">
+                    <button class="btn btn-primary" type="button">打开</button>
+                    <button class="btn btn-secondary" type="button">新标签页</button>
+                </div>
+            `;
+
+            const [openBtn, openNewTabBtn] = card.querySelectorAll("button");
+            openBtn.addEventListener("click", () => openResource(item, false));
+            openNewTabBtn.addEventListener("click", () => openResource(item, true));
+            return card;
+        }
+
+        function renderResources(query) {
+            const q = query.trim().toLowerCase();
+            const filtered = resources.filter((item) => {
+                const text = `${item.title} ${item.file} ${item.keywords.join(" ")}`.toLowerCase();
+                return text.includes(q);
+            });
+
+            resourceGrid.innerHTML = "";
+            filtered.forEach((item) => resourceGrid.appendChild(createCard(item)));
+            countMeta.textContent = `显示 ${filtered.length} / ${resources.length} 个资源`;
+            emptyState.style.display = filtered.length ? "none" : "block";
+        }
+
+        function renderRecent() {
+            const recent = readRecent();
+            recentList.innerHTML = "";
+            if (!recent.length) {
+                const li = document.createElement("li");
+                li.textContent = "暂无访问记录";
+                recentList.appendChild(li);
+                return;
+            }
+
+            recent.forEach((item) => {
+                const li = document.createElement("li");
+                const link = document.createElement("a");
+                link.href = item.file;
+                link.textContent = `${item.title}（${item.at}）`;
+                link.addEventListener("click", () => writeRecent(item));
+                li.appendChild(link);
+                recentList.appendChild(li);
+            });
+        }
+
+        searchInput.addEventListener("input", () => renderResources(searchInput.value));
+        renderResources("");
+        renderRecent();
+    </script>
+</body>
+</html>
