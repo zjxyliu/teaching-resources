@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>角动量守恒与能量转化动态模拟器</title>
+    <style>
+        body { font-family: "Microsoft YaHei", sans-serif; background-color: #f4f6f9; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #1a252f; margin-top: 0; }
+        
+        /* 控制面板 */
+        .controls { display: flex; justify-content: space-between; flex-wrap: wrap; background: #ecf0f1; padding: 15px; border-radius: 8px; border: 1px solid #bdc3c7; }
+        .control-group { display: flex; flex-direction: column; align-items: center; margin: 5px 10px; font-weight: bold; font-size: 14px; color: #2c3e50; flex: 1; min-width: 180px;}
+        input[type="range"] { width: 100%; margin-top: 10px; }
+        .val-display { color: #e74c3c; font-size: 15px; margin-top: 5px; }
+
+        /* 动画布局 (居中显示) */
+        .display-area { display: flex; margin-top: 20px; justify-content: center; }
+        .canvas-container { border: 1px solid #bdc3c7; border-radius: 8px; background: #ffffff; overflow: hidden; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.05);}
+        .panel-title { position: absolute; top: 10px; left: 15px; font-weight: bold; color: #7f8c8d; font-size: 14px; z-index: 10; background: rgba(255,255,255,0.8); padding: 4px 8px; border-radius: 4px;}
+
+        /* 数据仪表板 */
+        .dashboard { margin-top: 25px; display: flex; justify-content: space-around; background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 5px solid #34495e; flex-wrap: wrap; gap: 10px;}
+        .dash-item { text-align: center; min-width: 150px;}
+        .dash-val { font-size: 22px; font-weight: bold; color: #2c3e50; margin-top: 8px;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🕺 角动量守恒核心物理演示</h2>
+        
+        <div class="controls">
+            <div class="control-group">
+                单个哑铃质量 m: <span class="val-display" id="lbl_m">5.00 kg</span>
+                <input type="range" id="slide_m" min="1" max="10" value="5.0" step="0.5" oninput="updateParams()">
+            </div>
+            <div class="control-group" style="background: #fff3cd; border-radius: 6px; padding: 5px;">
+                🚨 调节双臂半径 r (核心交互): <span class="val-display" id="lbl_r" style="color:#0b5ed7;">1.00 m</span>
+                <input type="range" id="slide_r" min="0.2" max="1.5" value="1.0" step="0.02" oninput="updateParams()">
+            </div>
+            <div class="control-group">
+                初始角速度 ω₀: <span class="val-display" id="lbl_w0">2.0 rad/s</span>
+                <input type="range" id="slide_w0" min="1" max="5" value="2.0" step="0.2" oninput="resetSimulation()">
+            </div>
+        </div>
+
+        <div class="display-area">
+            <div class="canvas-container">
+                <div class="panel-title">旋转转盘俯视图 (无摩擦系统)</div>
+                <canvas id="simCanvas" width="600" height="450"></canvas>
+            </div>
+        </div>
+
+        <div class="dashboard">
+            <div class="dash-item">总角动量 (L = Iω)<div class="dash-val" id="valL" style="color:#e67e22;">0.00 kg·m²/s</div></div>
+            <div class="dash-item">当前转动惯量 (I)<div class="dash-val" id="valI">0.00 kg·m²</div></div>
+            <div class="dash-item">当前角速度 (ω)<div class="dash-val" id="valW" style="color:#3498db;">0.00 rad/s</div></div>
+            <div class="dash-item">实时转动动能 (Ek)<div class="dash-val" id="valEk" style="color:#2ecc71;">0.00 J</div></div>
+        </div>
+    </div>
+
+    <script>
+        const simCanvas = document.getElementById('simCanvas');
+        const ctxSim = simCanvas.getContext('2d');
+        let reqId;
+
+        // --- 物理常数与初始参数 ---
+        const I_0 = 2.0; // 人体+转盘的基础转动惯量 (kg·m²)
+        let m, r, omega, L_const;
+        let currentRotationAngle = 0; // 动画旋转角度
+
+        // 初始化/重置函数
+        function resetSimulation() {
+            m = parseFloat(document.getElementById('slide_m').value);
+            r = parseFloat(document.getElementById('slide_r').value);
+            let omega0 = parseFloat(document.getElementById('slide_w0').value);
+
+            // 计算恒定的总角动量 L (撞击或初始状态确定)
+            let I_init = I_0 + 2 * m * r * r;
+            L_const = I_init * omega0;
+
+            updateParams();
+        }
+
+        // 实时拖动滑块时触发的物理逻辑结算
+        function updateParams() {
+            m = parseFloat(document.getElementById('slide_m').value);
+            r = parseFloat(document.getElementById('slide_r').value);
+            
+            // 更新显示文本
+            document.getElementById('lbl_m').innerText = m.toFixed(2) + " kg";
+            document.getElementById('lbl_r').innerText = r.toFixed(2) + " m";
+            document.getElementById('lbl_w0').innerText = parseFloat(document.getElementById('slide_w0').value).toFixed(1) + " rad/s";
+
+            // 【核心物理方程】：角动量守恒逆解当前角速度
+            let I_current = I_0 + 2 * m * r * r;
+            omega = L_const / I_current; 
+
+            // 计算当前转动动能 Ek = 0.5 * I * w^2
+            let Ek_current = 0.5 * I_current * omega * omega;
+
+            // 刷新看板数据
+            document.getElementById('valL').innerText = L_const.toFixed(2) + " (守恒)";
+            document.getElementById('valI').innerText = I_current.toFixed(2);
+            document.getElementById('valW').innerText = omega.toFixed(2);
+            document.getElementById('valEk').innerText = Ek_current.toFixed(2);
+        }
+
+        // 绘制旋转转盘
+        function renderSimulation() {
+            ctxSim.clearRect(0, 0, simCanvas.width, simCanvas.height);
+            const cx = simCanvas.width / 2;
+            const cy = simCanvas.height / 2;
+            
+            // 随角速度 ω 动态累加旋转弧度
+            currentRotationAngle += omega * 0.016; 
+
+            ctxSim.save();
+            ctxSim.translate(cx, cy);
+            ctxSim.rotate(currentRotationAngle);
+
+            // 1. 画旋转底盘 (由于画布变大，底盘画大一点)
+            ctxSim.beginPath(); ctxSim.arc(0, 0, 150, 0, 2 * Math.PI);
+            ctxSim.fillStyle = "#dfe6e9"; ctxSim.fill();
+            ctxSim.strokeStyle = "#7f8c8d"; ctxSim.lineWidth = 3; ctxSim.stroke();
+
+            // 2. 画转盘刻度线（增强旋转视觉感）
+            ctxSim.strokeStyle = "#b2bec3"; ctxSim.lineWidth = 1;
+            for(let i=0; i<8; i++) {
+                ctxSim.beginPath(); ctxSim.moveTo(0,0); ctxSim.lineTo(150*Math.cos(i*Math.PI/4), 150*Math.sin(i*Math.PI/4)); ctxSim.stroke();
+            }
+
+            // 3. 画人的躯干（中心位置）
+            ctxSim.beginPath(); ctxSim.arc(0, 0, 30, 0, 2 * Math.PI);
+            ctxSim.fillStyle = "#e67e22"; ctxSim.fill();
+
+            // 4. 画伸展的双手（平动半径导轨）
+            ctxSim.strokeStyle = "#2c3e50"; ctxSim.lineWidth = 8; ctxSim.beginPath();
+            ctxSim.moveTo(-160, 0); ctxSim.lineTo(160, 0); ctxSim.stroke();
+
+            // 5. 画两个质量块（哑铃）- 视觉拉伸比例放大 (1m = 100像素)
+            let visualR = r * 100;
+            ctxSim.fillStyle = "#2c3e50";
+            ctxSim.beginPath(); ctxSim.arc(visualR, 0, 14 + m, 0, 2 * Math.PI); ctxSim.fill(); // 右侧
+            ctxSim.beginPath(); ctxSim.arc(-visualR, 0, 14 + m, 0, 2 * Math.PI); ctxSim.fill(); // 左侧
+
+            ctxSim.restore();
+        }
+
+        // 主计时器循环
+        function mainLoop() {
+            renderSimulation();
+            reqId = requestAnimationFrame(mainLoop);
+        }
+
+        // 初始化启动
+        resetSimulation();
+        mainLoop();
+    </script>
+</body>
+</html>

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>冲击摆：动量与能量守恒动态模拟器</title>
+    <style>
+        body { font-family: "Microsoft YaHei", sans-serif; background-color: #f0f2f5; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #2c3e50; margin-top: 0; }
+        
+        /* 控制面板 */
+        .controls { display: flex; justify-content: space-between; flex-wrap: wrap; background: #f8f9fa; padding: 15px; border-radius: 8px; border: 1px solid #e9ecef; }
+        .control-group { display: flex; flex-direction: column; align-items: center; margin: 5px 10px; font-weight: bold; font-size: 14px;}
+        input { width: 80px; padding: 8px; margin-top: 5px; border: 1px solid #ced4da; border-radius: 4px; text-align: center; }
+        button { width: 100%; margin-top: 15px; padding: 15px; font-size: 18px; font-weight: bold; background-color: #e74c3c; color: white; border: none; border-radius: 8px; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 6px rgba(231, 76, 60, 0.3); }
+        button:hover { background-color: #c0392b; transform: translateY(-2px); }
+
+        /* 动画与图表布局 */
+        .display-area { display: flex; margin-top: 20px; gap: 20px; }
+        .canvas-container { flex: 1; border: 1px solid #d1d5db; border-radius: 8px; background: #eef2f5; overflow: hidden; display: flex; justify-content: center; align-items: center;}
+        .charts-container { flex: 1; display: flex; flex-direction: column; gap: 15px; justify-content: center; }
+
+        /* 能量图表样式 */
+        .chart-box { background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #e9ecef; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+        .chart-title { font-weight: bold; margin-bottom: 10px; font-size: 15px; color: #495057; display: flex; justify-content: space-between;}
+        
+        .bar-bg { width: 100%; height: 30px; background: #e9ecef; border-radius: 15px; overflow: hidden; display: flex; }
+        .bar-segment { height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; overflow: hidden; }
+        
+        .color-lost { background-color: #e74c3c; } /* 红色：损失热能 */
+        .color-kinetic { background-color: #3498db; } /* 蓝色：动能 */
+        .color-potential { background-color: #2ecc71; } /* 绿色：势能 */
+        .color-momentum { background-color: #9b59b6; } /* 紫色：动量 */
+
+        .legend { display: flex; gap: 10px; font-size: 13px; margin-top: 10px; flex-wrap: wrap;}
+        .legend span { display: flex; align-items: center; gap: 5px; }
+        .dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🎯 冲击摆：真实的摆动与实时能量追踪</h2>
+        
+        <div class="controls">
+            <div class="control-group">子弹质量 m (kg) <input type="number" id="m" value="0.01" step="0.01"></div>
+            <div class="control-group">子弹初速 v (m/s) <input type="number" id="v" value="400" step="50"></div>
+            <div class="control-group">木块质量 M (kg) <input type="number" id="M" value="2.0" step="0.5"></div>
+            <div class="control-group">摆绳长度 L (m) <input type="number" id="L" value="2.0" step="0.2"></div>
+        </div>
+        <button onclick="fire()">🔥 发射子弹并观察全过程</button>
+
+        <div class="display-area">
+            <div class="canvas-container">
+                <canvas id="simCanvas" width="450" height="400"></canvas>
+            </div>
+            
+            <div class="charts-container">
+                <div class="chart-box">
+                    <div class="chart-title"><span>系统总动量 (动量守恒)</span> <span id="txtMomentum">0.00 kg·m/s</span></div>
+                    <div class="bar-bg">
+                        <div id="barMomentum" class="bar-segment color-momentum" style="width: 100%;">守恒恒定</div>
+                    </div>
+                </div>
+
+                <div class="chart-box">
+                    <div class="chart-title"><span>系统总能量转化 (实时分布)</span> <span id="txtTotalEnergy">0.00 J</span></div>
+                    <div class="bar-bg">
+                        <div id="barLost" class="bar-segment color-lost" style="width: 0%;"></div>
+                        <div id="barKinetic" class="bar-segment color-kinetic" style="width: 100%;"></div>
+                        <div id="barPotential" class="bar-segment color-potential" style="width: 0%;"></div>
+                    </div>
+                    <div class="legend">
+                        <span><i class="dot color-lost"></i> 形变与热能损失: <b id="valLost">0</b> J</span>
+                        <span><i class="dot color-kinetic"></i> 实时动能 (Ek): <b id="valKinetic">0</b> J</span>
+                        <span><i class="dot color-potential"></i> 实时重力势能 (Ep): <b id="valPotential">0</b> J</span>
+                    </div>
+                </div>
+                
+                <div class="chart-box" style="background-color: #f1f8ff; border-color: #cce5ff;">
+                    <div class="chart-title" style="color: #004085;">物理过程解析</div>
+                    <div style="font-size: 14px; color: #004085; line-height: 1.6;">
+                        • 碰后共同速度：<strong id="resV">0.00</strong> m/s<br>
+                        • 机械能损失占比：<strong id="resLossRate">0.0</strong> %<br>
+                        • 摆锤到达最高点：<strong id="resH">0.000</strong> m
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        let reqId;
+
+        // 视觉坐标设定
+        const pivotX = 225; // 悬挂点X
+        const pivotY = 30;  // 悬挂点Y
+        const visualL = 220; // 绳子像素长度
+        const groundY = pivotY + visualL; // 最低点
+
+        // 物理状态变量
+        let state = 'idle'; // idle, flying, swinging
+        let m, v, M, L, g = 9.8;
+        let v_post, max_H, maxAngle, omega;
+        let E_initial, E_lost, E_post_k;
+        
+        let simTime = 0; // 物理运行时间
+        let bulletX = 20; // 子弹初始位置
+        let currentAngle = 0;
+
+        function drawScene() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 画顶板
+            ctx.fillStyle = "#6c757d"; ctx.fillRect(150, 10, 150, 20);
+
+            if (state === 'idle' || state === 'flying') {
+                // 画绳子和木块（垂直）
+                ctx.beginPath(); ctx.moveTo(pivotX, pivotY); ctx.lineTo(pivotX, groundY); 
+                ctx.strokeStyle = "#495057"; ctx.lineWidth = 2; ctx.stroke();
+                ctx.fillStyle = "#8B4513"; ctx.fillRect(pivotX - 25, groundY, 50, 50);
+                
+                // 画子弹
+                ctx.fillStyle = "#212529"; ctx.fillRect(bulletX, groundY + 20, 20, 8);
+            } 
+            else if (state === 'swinging') {
+                // 计算当前摆锤坐标
+                let bobX = pivotX + visualL * Math.sin(currentAngle);
+                let bobY = pivotY + visualL * Math.cos(currentAngle);
+                
+                // 画绳子
+                ctx.beginPath(); ctx.moveTo(pivotX, pivotY); ctx.lineTo(bobX, bobY); ctx.stroke();
+                
+                // 画倾斜的木块(内部含子弹)
+                ctx.save();
+                ctx.translate(bobX, bobY);
+                ctx.rotate(-currentAngle);
+                ctx.fillStyle = "#8B4513"; ctx.fillRect(-25, 0, 50, 50); // 木块
+                ctx.fillStyle = "#212529"; ctx.fillRect(-10, 20, 20, 8); // 子弹
+                ctx.restore();
+                
+                // 画虚线表示起始高度和最大高度
+                ctx.strokeStyle = "rgba(0,0,0,0.1)"; ctx.beginPath();
+                ctx.moveTo(50, groundY); ctx.lineTo(400, groundY); ctx.stroke(); // 最低点
+            }
+        }
+
+        function updateCharts(Ek, Ep) {
+            let pctLost = (E_lost / E_initial) * 100;
+            let pctKinetic = (Ek / E_initial) * 100;
+            let pctPotential = (Ep / E_initial) * 100;
+
+            document.getElementById('barLost').style.width = pctLost + '%';
+            document.getElementById('barKinetic').style.width = pctKinetic + '%';
+            document.getElementById('barPotential').style.width = pctPotential + '%';
+
+            document.getElementById('valLost').innerText = E_lost.toFixed(1);
+            document.getElementById('valKinetic').innerText = Ek.toFixed(1);
+            document.getElementById('valPotential').innerText = Ep.toFixed(1);
+        }
+
+        function physicsLoop() {
+            if (state === 'flying') {
+                bulletX += 15; // 子弹飞行速度(视觉)
+                if (bulletX >= pivotX - 25) {
+                    state = 'swinging';
+                    simTime = 0; // 重置时间以计算简谐振动
+                    
+                    // 撞击瞬间，更新图表：动能锐减，损失激增
+                    updateCharts(E_post_k, 0);
+                }
+            } 
+            else if (state === 'swinging') {
+                simTime += 0.03; // 时间步长
+                
+                // 完美的简谐振动公式：θ(t) = θ_max * sin(ωt) (起始于平衡位置最高速)
+                currentAngle = maxAngle * Math.sin(omega * simTime);
+                
+                // 实时计算物理高度
+                let current_H = L * (1 - Math.cos(currentAngle));
+                
+                // 实时计算能量 (确保能量守恒)
+                let current_Ep = (m + M) * g * current_H;
+                let current_Ek = E_post_k - current_Ep;
+                if (current_Ek < 0) current_Ek = 0; // 防止浮点误差
+
+                updateCharts(current_Ek, current_Ep);
+            }
+            
+            drawScene();
+            reqId = requestAnimationFrame(physicsLoop);
+        }
+
+        function fire() {
+            if (reqId) cancelAnimationFrame(reqId);
+            
+            // 获取并校验参数
+            m = parseFloat(document.getElementById('m').value);
+            v = parseFloat(document.getElementById('v').value);
+            M = parseFloat(document.getElementById('M').value);
+            L = parseFloat(document.getElementById('L').value);
+            
+            // --- 物理硬核计算区 ---
+            // 1. 动量守恒
+            let momentum = m * v;
+            v_post = momentum / (m + M);
+            
+            // 2. 能量计算
+            E_initial = 0.5 * m * v * v;
+            E_post_k = 0.5 * (m + M) * v_post * v_post;
+            E_lost = E_initial - E_post_k;
+            
+            // 3. 摆动参数
+            max_H = (v_post * v_post) / (2 * g);
+            // 限制最大高度不超过绳长2倍(避免越过定点变成圆周运动)
+            let cosTheta = 1 - (max_H / L);
+            if (cosTheta < -1) cosTheta = -1; 
+            maxAngle = Math.acos(cosTheta);
+            omega = Math.sqrt(g / L); // 简谐振动的圆频率
+
+            // --- 更新静态文本面板 ---
+            document.getElementById('txtMomentum').innerText = momentum.toFixed(2) + " kg·m/s";
+            document.getElementById('txtTotalEnergy').innerText = E_initial.toFixed(2) + " J";
+            document.getElementById('resV').innerText = v_post.toFixed(2);
+            document.getElementById('resLossRate').innerText = ((E_lost/E_initial)*100).toFixed(1);
+            document.getElementById('resH').innerText = max_H.toFixed(3);
+            
+            // 重置状态与图表
+            state = 'flying';
+            bulletX = 20;
+            currentAngle = 0;
+            updateCharts(E_initial, 0); // 初始时全部是动能(子弹)
+            document.getElementById('barLost').style.width = '0%'; // 飞行时无损失
+            
+            physicsLoop();
+        }
+
+        // 初始绘制
+        drawScene();
+    </script>
+</body>
+</html>
